@@ -4,13 +4,6 @@
 #include "Raspberry_Hardware.hpp"
 #include <memory>
 
-typedef enum class LEV : std::uint8_t const
-{
-    LOW=0x00,
-    HIGH=0x01,
-
-}Level;
-
 template<Soc_hardware_version version>class RPi_Controler : public Nocopyable
 {
 public:

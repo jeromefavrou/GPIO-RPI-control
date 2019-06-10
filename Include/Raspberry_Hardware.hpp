@@ -14,8 +14,8 @@ public:
     class Hardware_memory_Error :public Error
     {
         public:
-        Hardware_memory_Error(int numero, std::string const& _str,level _level)throw():Error(numero,_str,_level){this->m_class="Hardware_memory_Error";};
-        virtual ~Hardware_memory_Error(){};
+        Hardware_memory_Error(int numero, std::string const& _str,level _level)throw():Error(numero,_str,_level){this->m_class="Hardware_memory_Error";}
+        virtual ~Hardware_memory_Error(){}
     };
 
     Hardware_memory();

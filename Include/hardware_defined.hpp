@@ -31,6 +31,12 @@ typedef enum class HARDWARE_VERSION  : int const {BCM2835=0,BCM2836,BCM2837,BCM2
 
 typedef enum class PO_GP : int const {GPFSEL=0,GPSET,GPCLR,GPLEV,GPEDS,GPREN,GPFEN,GPHEN,GPLEN,GPAREN,GPAFEN,GPPUD,GPPUDCLK,} SoC_gp_physical_offset;
 
-typedef enum class PA : int const {GPIO=0,ST,PADS,CLOCK,SPI,BSC0,BSC1,PWM} SoC_physical_addr;
+typedef enum class PA : int const {GPIO=0,ST,PADS,CLOCK,SPI,BSC0,BSC1,PWM,} SoC_physical_addr;
+
+typedef enum class FSEL : std::uint8_t const {INPUT = 0,OUTPUT ,ALT0, ALT1 ,ALT2,ALT3 ,ALT4 ,ALT5,MASK,}Function_Select;
+
+typedef enum class LEV : std::uint8_t const {LOW=0x00,HIGH=0x01,}Level;
+
+typedef enum class BAUD : int const{BR_9600=9600,} Baud_Rate;
 
 #endif // HARDWARE_DEFINED_HPP_INCLUDED

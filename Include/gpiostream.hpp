@@ -5,8 +5,6 @@
 #include <string>
 #include <vector>
 
-typedef enum class FSEL : std::uint8_t const{INPUT = 0,OUTPUT ,ALT0, ALT1 ,ALT2,ALT3 ,ALT4 ,ALT5,MASK,}Function_Select;
-
 template<Soc_hardware_version version,Rasp_version::Pin_gpio pin> class GPIO : public RPi_Controler<version>
 {
 public:

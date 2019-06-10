@@ -1,14 +1,21 @@
 #include <iostream>
 #include "gpiostream.hpp"
+#include "uart.hpp"
 #include <stdint.h>
 
 int main()
 {
     std::shared_ptr<Hardware_memory<HARDWARE_VERSION::BCM2837B0>> gpio_mem=std::make_shared<Hardware_memory<HARDWARE_VERSION::BCM2837B0>>(Hardware_memory<HARDWARE_VERSION::BCM2837B0>{});
 
+    Serial serial0("/dev/AMA0",BAUD::BR_9600);
+
     try
     {
-        std::cout << "open physicals address: 0x"<< std::hex << gpio_mem->get_peripheral_addr()+gpio_mem->get_pa(PA::GPIO)<< " to 0x" <<gpio_mem->get_peripheral_addr()+gpio_mem->get_pa(PA::GPIO) + gpio_mem->get_block_size() <<std::endl<<std::endl;
+        std::cout << "opening serial on 9600 br"<< std::endl;
+
+        serial0.init();
+
+        std::cout << "opening physicals address: 0x"<< std::hex << gpio_mem->get_peripheral_addr()+gpio_mem->get_pa(PA::GPIO)<< " to 0x" <<gpio_mem->get_peripheral_addr()+gpio_mem->get_pa(PA::GPIO) + gpio_mem->get_block_size() <<std::endl<<std::endl;
 
         gpio_mem->init(PA::GPIO);
     }
@@ -20,12 +27,15 @@ int main()
             return -1;
     }
 
-    GPIO<HARDWARE_VERSION::BCM2837B0,Rasp_version::PI_3BP::GPIO_4> gp_test{gpio_mem};
+   GPIO<HARDWARE_VERSION::BCM2837B0,Rasp_version::PI_3BP::GPIO_4> gp_test{gpio_mem};
 
     gp_test.direction(FSEL::OUTPUT);
 
     for(auto i=0;i<10;i++)
+    {
         gp_test.set(i%2?LEV::HIGH:LEV::LOW);
+    }
+
 
 
     gp_test.direction(FSEL::MASK);
