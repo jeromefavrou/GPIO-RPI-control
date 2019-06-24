@@ -7,7 +7,18 @@
 #include "Error.hpp"
 #include "hardware_defined.hpp"
 
-#define LOCK_PATH "/var/lock"
+#include <inttypes.h>
+#include <stdio.h>
+#include <fcntl.h>
+#include <sys/select.h>
+#include <sys/time.h>
+#include <sys/ioctl.h>
+#include <asm/termbits.h>
+#include <unistd.h>
+#include <string.h>
+#include <stdlib.h>
+
+extern "C" int tcdrain (int __fd);
 
 class Serial : public Nocopyable
 {
@@ -22,16 +33,21 @@ public:
 
     typedef std::vector<char> Data;
 
-    Serial(std::string  const & pth_driver, Baud_Rate const & br):m_driver_path(pth_driver),m_baud_rate(br),m_init(false)
+    Serial(std::string  const & pth_driver, Baud_Rate const & br):m_driver_path(pth_driver),m_baud_rate(br),m_init(false),m_fd(-1)
     {
     }
     ~Serial(void)
     {
-        this->m_serial.close();
+        this->end();
     }
 
     void init(void)
     {
+        struct termios2 options;
+
+        if (this->m_fd >= 0)
+            this->end();
+
         if(!this->check_file(this->m_driver_path))
             throw Serial_Error(0,"driver path unfound",Error::level::FATAL_ERROR);
 
@@ -39,32 +55,57 @@ public:
         else
             throw  Serial_Error(1,"system() not ready",Error::level::FATAL_ERROR);
 
-        system(std::string("stty -F "+this->m_driver_path+" "+ss_cast<int,std::string>(static_cast<int>(this->m_baud_rate))).c_str());
+        this->m_fd = open(this->m_driver_path.c_str(), O_RDWR|O_NOCTTY);
 
-        this->m_serial.open(m_driver_path,std::ios::in | std::ios::out | std::ios::binary);
+        if (this->m_fd < 0)
+            return ;
+
+
+        fcntl(this->m_fd, F_SETFL, 0);
+
+        ioctl(this->m_fd, TCGETS2, &options);
+        ioctl(this->m_fd, TCGETS2, &this->m_savedOptions);
+        options.c_cflag &= ~CBAUD;
+        options.c_cflag |= BOTHER;
+        options.c_ispeed = static_cast<unsigned long>(this->m_baud_rate);
+        options.c_ospeed = static_cast<unsigned long>(this->m_baud_rate);
+        this->m_savedOptions.c_cflag |= BOTHER;
+        this->m_savedOptions.c_ispeed = static_cast<unsigned long>(this->m_baud_rate);
+        this->m_savedOptions.c_ospeed = static_cast<unsigned long>(this->m_baud_rate);
+        options.c_cflag |= (CLOCAL | CREAD);
+        options.c_cflag &= ~CRTSCTS;
+        options.c_cflag &= ~HUPCL;
+        this->m_savedOptions.c_cflag &= ~HUPCL;
+
+        options.c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP
+                    | INLCR | IGNCR | ICRNL | IXON);
+        options.c_oflag &= ~OPOST;
+        options.c_lflag &= ~(ECHO | ECHONL | ICANON | ISIG | IEXTEN);
+        options.c_cflag &= ~(CSIZE | PARENB);
+        options.c_cflag |= CS8;
+
+        if (strcmp(this->m_driver_path.c_str(), "/dev/tty") == 0)
+            options.c_lflag |= ISIG;
+
+        ioctl(this->m_fd, TCSETS2, &options);
 
         this->m_init=true;
     }
 
-    void lock()
-    {
-
-    }
-
     Data read(void)
     {
-        if(!this->m_init)
+        if (!this->available())
             return Data(0);
 
-        this->m_serial.seekg (0, this->m_serial.end);
-        long int length = this->m_serial.tellg();
-        this->m_serial.seekg (0, this->m_serial.beg);
+        char *c;
 
-        Data buffer=Data(length,0);
+        if (::read(this->m_fd, c, 1) <= 0)
+            return Data(0);
 
-        this->m_serial.read(buffer.data(),length);
+        Data d;
+        d.push_back(*c);
 
-        this->m_serial.seekg (0, this->m_serial.beg);
+        return d;
     }
 
     std::string read_str(void)
@@ -75,19 +116,17 @@ public:
     }
     void write(Data const & msg)
     {
-        if(!this->m_init)
-            return ;
+        if (this->m_fd < 0 || !this->m_init)
+            return;
 
-        this->m_serial.seekp(0, this->m_serial.beg);
-
-        this->m_serial.write(msg.data(),msg.size());
-
-        this->m_serial.seekp(0, this->m_serial.beg);
+        ::write(this->m_fd, msg.data() , msg.size());
     }
     void write_str(std::string const & msg)
     {
         this->write(Data(msg.begin(),msg.end()));
     }
+
+    inline int getFD() { return this->m_fd; }
 
 private:
 
@@ -98,9 +137,40 @@ private:
         return (If && !If.bad() && !If.fail())?true:false;
     }
 
+    void end()
+    {
+        if (this->m_fd > -1)
+        {
+            tcdrain(this->m_fd);
+            ioctl(this->m_fd, TCSETS2, &this->m_savedOptions);
+            ::close(this->m_fd);
+        }
+        this->m_fd = -1;
+    }
+
+    bool available(void)
+    {
+        if (this->m_fd < 0 || !m_init)
+            return false;
+
+        fd_set rfds;
+        struct timeval tv;
+
+        FD_ZERO(&rfds);
+        FD_SET(this->m_fd, &rfds);
+        tv.tv_sec = 0;
+        tv.tv_usec = 1;
+        int retval = select(this->m_fd+1, &rfds, NULL, NULL, &tv);
+        if (retval)
+            return true;
+
+        return false;
+    }
+
     bool m_init;
     std::string m_driver_path;
     Baud_Rate m_baud_rate;
 
-    std::fstream m_serial;
+    int m_fd;
+    struct termios2 m_savedOptions;
 };
