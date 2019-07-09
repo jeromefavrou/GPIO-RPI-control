@@ -17,6 +17,8 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
+#include <chrono>
+#include <thread>
 
 extern "C" int tcdrain (int __fd);
 
@@ -92,28 +94,38 @@ public:
         this->m_init=true;
     }
 
-    Data read(void)
+    char read(void)
     {
         if (!this->available())
-            return Data(0);
+            return char(0x00);
 
         char *c;
 
         if (::read(this->m_fd, c, 1) <= 0)
-            return Data(0);
+            return char(0x00);
 
-        Data d;
-        d.push_back(*c);
-
-        return d;
+        return *c;
     }
 
-    std::string read_str(void)
+    std::string read_str(char ending,double ms_delay)
     {
-        Data buff=this->read();
+        std::string res{""};
 
-        return std::string(buff.begin(),buff.end());
+        auto start = std::chrono::system_clock::now();
+
+        while(std::chrono::duration<double,std::milli>(std::chrono::system_clock::now()-start).count()<=ms_delay)
+        {
+            char tps=this->read();
+
+            if(tps==ending)
+                break;
+            else
+                res+=tps;
+        }
+
+        return res;
     }
+
     void write(Data const & msg)
     {
         if (this->m_fd < 0 || !this->m_init)
