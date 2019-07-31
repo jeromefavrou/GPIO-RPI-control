@@ -1,4 +1,4 @@
 # GPIO-RPI-control
-unix-memory mapping
-master uart (uart)
+- unix-memory mapping
+- master uart (uart)
 
