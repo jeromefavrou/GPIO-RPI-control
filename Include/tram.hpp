@@ -78,7 +78,7 @@ class Tram
         template<typename T> static T cast_to_type(VCHAR const & _data)
         {
             if(sizeof(T)!=_data.size())
-                throw std::string("sizeof(T)!=_data.size()");
+                throw Erreur(1,"sizeof(T)!=_data.size()",Error::level::ERROR);
 
             T tps(0);
 
