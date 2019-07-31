@@ -1,6 +1,8 @@
 #ifndef HARDWARE_DEFINED_HPP_INCLUDED
 #define HARDWARE_DEFINED_HPP_INCLUDED
 
+#include "utility.hpp"
+
 class Rasp_version : public Nocopyable
 {
     public:

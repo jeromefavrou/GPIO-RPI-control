@@ -59,8 +59,21 @@ void Serial::write(std::string const & __str)
     ::write(this->m_file_desciptor,(char*) __str.c_str() , __str.size()*sizeof(char)) ;
 }
 
+void Serial::write(VCHAR const & __data)
+{
+    this->throwing();
 
-char Serial::read_c (void)
+    ::write(this->m_file_desciptor,(char*) __data.data() , __data.size()*sizeof(byte)) ;
+}
+
+void Serial::write(Tram const & __tram)
+{
+    this->throwing();
+
+    ::write(this->m_file_desciptor,(char*) __tram.get_c_data().data() , __tram.get_c_data().size()*sizeof(byte)) ;
+}
+
+byte Serial::read_byte (void)
 {
     this->throwing();
 
@@ -69,16 +82,8 @@ char Serial::read_c (void)
     if (::read (this->m_file_desciptor, &x, 1) != 1)
     return -1 ;
 
-    return static_cast<char>(((int)x) & 0xFF);
+    return static_cast<byte>(((int)x) & 0xFF);
 }
-
-std::string Serial::read(void)
-{
-    this->throwing();
-
-    return "";
-}
-
 
 int Serial::availble(void)
 {

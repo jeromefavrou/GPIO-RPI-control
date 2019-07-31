@@ -46,7 +46,7 @@ int main()
 
        for(;len>0;len--)
        {
-           std::cout << serial0.read_c();
+           std::cout << serial0.read_byte();
        }
 
        std::cout << std::endl;
