@@ -39,6 +39,7 @@ int main()
     try
     {
        serial0.write("test_en");
+       serial0.flush();
 
        std::this_thread::sleep_for(std::chrono::duration<int,std::milli>(50));
 
