@@ -1,36 +1,10 @@
 #ifndef EXCHANGER_HPP_INCLUDED
 #define EXCHANGER_HPP_INCLUDED
 
-#include "tram.hpp"
+#include "Object.hpp"
 #include <memory>
 #include <map>
 
-class Object
-{
-public:
-
-    typedef enum class TYPE  : byte const {USHORT,SHORT,FLOAT,INT,UINT,DOUBLE,STRING,BYTE,CHAR,UCHAR,LONG,ULONG} type;
-
-    Object(byte const & _addr,type const & _type);
-    ~Object(void);
-
-    Object operator=(VCHAR const & _value);
-
-    void set_obj(VCHAR const & _value);
-    VCHAR m_data get_obj(void) const ;
-
-    VCHAR m_data & obj(void);
-    type get_type(void);
-
-    bool lock;
-
-private:
-
-    VCHAR m_data;
-    byte const m_addr;
-    unsigned int m_size;
-    type m_type_decrp;
-};
 
 class Exchanger
 {
@@ -40,7 +14,7 @@ public:
     {
     public:
         Exchanger_Error(int numero, std::string const& _str,level _level)throw():Error(numero,_str,_level){this->m_class="Exchanger::Error";};
-        virtual ~Erreur(){};
+        virtual ~Exchanger_Error(){};
     };
 
     struct Header
@@ -51,28 +25,36 @@ public:
         unsigned int trame_size;
     };
 
-    Exchanger(byte const & Master_id,byte & Slave_id);
+    typedef enum class DIR : byte const {INPUT, OUTPUT} direction;
+
+    Exchanger(byte const & _Master_id,byte const & _Slave_id);
     ~Exchanger(void);
+
+    byte get_master_id(void)const;
+    byte get_slave_id(void)const;
+
+    Object & get_obj_ptr(void);
+    Object get_obj(void)const;
 
     template<byte const & _addr,typename T> void set_var(T const & _var);
     template<byte const & _addr,typename T> T get_var(void) const;
     template<byte const & _addr,typename T> T & var(void);
 
-    void read(Trame const &);
-    Trame write(void);
+    void read(Tram const &);
+    Tram write(void);
 
-    void read(VCHAR const &);
-    VCHAR write(void);
+    void read_data(VCHAR const &);
+    VCHAR write_data(void);
 
-    void proto_create(byte const & _addr,Object::type const & _type);
-    void create(Object const & _obj);
-    void insert(byte const & _addr);
-    void erase(byte const & _addr);
-
-    Object & get_obj_ptr(void);
-    Object get_obj(void)const;
+    void create(byte const & _addr,Object::type const & _type,direction const &_dir);
+    void insert(std::shared_ptr<Object> const & _obj,direction const &_dir);
+    void erase(byte const & _addr,direction const &_dir);
+    void clear(direction const &_dir);
 
 private:
+
+    bool check_free_addr(byte addr,direction _dir);
+
     struct Var
     {
         std::map<byte,std::shared_ptr<Object>> in;
@@ -80,6 +62,7 @@ private:
     };
 
     struct Var m_var;
+
 
     byte const m_master_id;
     byte const m_slave_id;
