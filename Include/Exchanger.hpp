@@ -27,23 +27,24 @@ public:
 
     typedef enum class DIR : byte const {INPUT, OUTPUT} direction;
 
-    Exchanger(byte const & _Master_id,byte const & _Slave_id);
+    Exchanger(byte const & _Master_id,byte const & _Slave_id,bool const &_master);
     ~Exchanger(void);
 
     byte get_master_id(void)const;
     byte get_slave_id(void)const;
 
-    Object & get_obj_ptr(void);
-    Object get_obj(void)const;
+    std::shared_ptr<Object> get_shared_obj(byte const & _addr,direction const &_dir);
+    Object & get_robj(byte const & _addr,direction const &_dir);
+    Object get_obj(byte const & _addr,direction const &_dir);
 
-    template<byte const & _addr,typename T> void set_var(T const & _var);
-    template<byte const & _addr,typename T> T get_var(void) const;
-    template<byte const & _addr,typename T> T & var(void);
+    template<typename T> void set_var(byte const & _addr,T const & _var);
+    template<typename T> T get_var(byte const & _addr) const;
+    template<typename T> T & var(byte const & _addr);
 
-    void read(Tram const &);
+    void read(Tram & _data);
     Tram write(void);
 
-    void read_data(VCHAR const &);
+    void read_data(VCHAR & _data);
     VCHAR write_data(void);
 
     void create(byte const & _addr,Object::type const & _type,direction const &_dir);
@@ -53,7 +54,9 @@ public:
 
 private:
 
-    bool check_free_addr(byte addr,direction _dir);
+    bool check_free_addr(byte _addr,direction _dir);
+    VCHAR::iterator read_header(VCHAR  & _data);
+    void read_var(VCHAR::iterator & _It);
 
     struct Var
     {
@@ -63,9 +66,11 @@ private:
 
     struct Var m_var;
 
-
     byte const m_master_id;
     byte const m_slave_id;
+    bool const m_ifmaster;
+
+    struct Header m_last_head;
 };
 
 

@@ -30,12 +30,14 @@ public:
     type get_type(void) const ;
     byte get_addr(void) const ;
 
+    byte size(void)const;
+
     right RW_right=RIGHT::RW;
 private:
 
     VCHAR m_data;
     byte const m_addr;
-    unsigned int m_size;
+    byte m_size;
     type m_type_decrp;
 
 };
