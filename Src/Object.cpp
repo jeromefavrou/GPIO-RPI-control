@@ -12,6 +12,7 @@ Object Object::operator=(VCHAR const & _value)
     //control of the size??? -> assert?
 
     this->m_data=_value;
+    this->m_size=this->m_data.size();
 
     return *this;
 }
@@ -21,6 +22,7 @@ void Object::set_obj(VCHAR const & _value)
     //control of the size???
 
     this->m_data=_value;
+    this->m_size=this->m_data.size();
 }
 
 VCHAR Object::get_obj(void) const
@@ -41,4 +43,9 @@ Object::type Object::get_type(void) const
 byte Object::get_addr(void) const
 {
     return this->m_addr;
+}
+
+byte Object::size(void) const
+{
+    return this->m_size;
 }

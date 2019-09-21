@@ -1,7 +1,11 @@
 #include "Exchanger.hpp"
 
-Exchanger::Exchanger(byte const & _Master_id,byte const & _Slave_id):m_master_id(_Master_id),m_slave_id(_Slave_id)
+Exchanger::Exchanger(byte const & _Master_id,byte const & _Slave_id,bool const& _master):m_master_id(_Master_id),m_slave_id(_Slave_id),m_ifmaster(_master)
 {
+    this->m_last_head.trame_verbose=0;
+    this->m_last_head.reader_id=0;
+    this->m_last_head.writer_id=0;
+    this->m_last_head.trame_size=0;
 }
 
 Exchanger::~Exchanger(void){}
@@ -16,9 +20,44 @@ byte Exchanger::get_slave_id(void)const
     return this->m_slave_id;
 }
 
-void Exchanger::create(byte const & _addr,Object::type const & _type,direction const &_dir)
+std::shared_ptr<Object> Exchanger::get_shared_obj(byte const & _addr,direction const &_dir)
 {
     if(this->check_free_addr(_addr,_dir))
+        throw Exchanger_Error(3,"get partage impossible la variable n'existe pas",Error::level::WARNING);
+
+    if(_dir == DIR::INPUT)
+        return this->m_var.in[_addr];
+    else if(_dir == DIR::OUTPUT)
+        return this->m_var.out[_addr];
+
+    return nullptr;
+}
+
+Object & Exchanger::get_robj(byte const & _addr,direction const &_dir)
+{
+    if(this->check_free_addr(_addr,_dir))
+        throw Exchanger_Error(4,"get referencé impossible la variable n'existe pas",Error::level::WARNING);
+
+    if(_dir == DIR::INPUT)
+        return *this->m_var.in[_addr];
+    else if(_dir == DIR::OUTPUT)
+        return *this->m_var.out[_addr];
+
+}
+Object Exchanger::get_obj(byte const & _addr,direction const & _dir)
+{
+    if(this->check_free_addr(_addr,_dir))
+        throw Exchanger_Error(5,"get impossible la variable n'existe pas",Error::level::WARNING);
+
+    if(_dir == DIR::INPUT)
+        return *this->m_var.in[_addr];
+    else if(_dir == DIR::OUTPUT)
+        return *this->m_var.out[_addr];
+}
+
+void Exchanger::create(byte const & _addr,Object::type const & _type,direction const &_dir)
+{
+    if(!this->check_free_addr(_addr,_dir))
         throw Exchanger_Error(0,"creation impossible la variable existe déja",Error::level::WARNING);
 
     if(_dir == DIR::INPUT)
@@ -29,7 +68,7 @@ void Exchanger::create(byte const & _addr,Object::type const & _type,direction c
 
 void Exchanger::insert(std::shared_ptr<Object> const & _obj,direction const &_dir)
 {
-    if(this->check_free_addr(_obj->get_addr(),_dir))
+    if(!this->check_free_addr(_obj->get_addr(),_dir))
         throw Exchanger_Error(1,"insertion impossible la variable existe déja",Error::level::WARNING);
 
     if(_dir == DIR::INPUT)
@@ -37,9 +76,10 @@ void Exchanger::insert(std::shared_ptr<Object> const & _obj,direction const &_di
     else if(_dir == DIR::OUTPUT)
         this->m_var.out[_obj->get_addr()]=_obj;
 }
+
 void Exchanger::erase(byte const & _addr,direction const &_dir)
 {
-    if(!this->check_free_addr(_addr,_dir))
+    if(this->check_free_addr(_addr,_dir))
         throw Exchanger_Error(2,"suppression impossible la variable n'existe pas",Error::level::WARNING);
 
     if(_dir == DIR::INPUT)
@@ -56,7 +96,104 @@ void Exchanger::clear(direction const &_dir)
         this->m_var.out.clear();
 }
 
-bool Exchanger::check_free_addr(byte addr,direction _dir)
+void Exchanger::read(Tram & _data)
 {
+    this->read_data(_data.get_data());
+}
+
+void Exchanger::read_data(VCHAR & _data)
+{
+    auto It=this->read_header(_data);
+
+    for(;It!=_data.end();It++)
+    {
+        try
+        {
+            this->read_var(It);
+        }
+        catch(Exchanger_Error & e)
+        {
+            std::cerr << e.what() <<std::endl;
+
+            if(e.get_level()!=Error::level::WARNING)
+                throw Exchanger_Error(e.get_num(),e.get_str(),e.get_level());
+
+            //e.set_log_stat(false);
+        }
+        catch(Object::Object_Error & e)
+        {
+            std::cerr << e.what() <<std::endl;
+
+            ///revoir cette gestoin par rapport au num d'erreur pour le contraol size
+
+            if(e.get_level()!=Error::level::WARNING)
+                throw Exchanger_Error(e.get_num(),e.get_str(),e.get_level());
+
+            //e.set_log_stat(false);
+        }
+    }
+}
+
+VCHAR::iterator Exchanger::read_header(VCHAR & _data)
+{
+    struct Header head;
+
+    auto It=_data.begin();
+
+    if(_data.size()<10)
+        throw Exchanger_Error(6,"Trame trop courte pour contenir une entete (taille: "+ss_cast<size_t,std::string>(_data.size())+" < 10)",Error::level::ERROR);
+
+    head.trame_verbose=Tram::cast_to_type<float>(VCHAR(It,It+=sizeof(float)));
+
+    if(head.trame_verbose<0.1)
+        throw Exchanger_Error(7,"La version de la trame ne peut etre lu (version: "+ss_cast<float,std::string>(head.trame_verbose)+"< 0.1)",Error::level::ERROR);
+
+    std::cout << "version: "<<head.trame_verbose << std::endl;
+
+    head.writer_id=Tram::cast_to_type<byte>(VCHAR(It,It+=sizeof(byte)));
+
+    if((head.writer_id!=this->m_slave_id && this->m_ifmaster) || (head.writer_id!=this->m_master_id && !this->m_ifmaster))
+        throw Exchanger_Error(8,"la trame n'est pas du bon destinaire (emmeteur id: "+ss_cast<int,std::string>(head.writer_id)+")",Error::level::WARNING);
+
+    std::cout << "emetteur: "<<head.writer_id << std::endl;
+
+    head.reader_id=Tram::cast_to_type<byte>(VCHAR(It,It+=sizeof(byte)));
+
+    if((head.reader_id!=this->m_master_id && this->m_ifmaster) || (head.reader_id!=this->m_slave_id && !this->m_ifmaster) )
+        throw Exchanger_Error(9,"la trame n'est pas addresse a cette instance (destinataire: "+ss_cast<int,std::string>(head.reader_id)+")",Error::level::WARNING);
+
+    std::cout << "destinataire: "<<head.writer_id << std::endl;
+
+    head.trame_size=Tram::cast_to_type<unsigned int>(VCHAR(It,It+=sizeof(unsigned int)));
+
+    if(head.trame_size!=_data.size())
+        throw Exchanger_Error(10,"taille trame indiquer et taille reel non correspondantent (taille: "+ss_cast<unsigned int,std::string>(head.trame_size)+" != "+ss_cast<size_t,std::string>(_data.size())+")",Error::level::ERROR);
+
+    std::cout << "taille trame: "<<head.writer_id << std::endl;
+
+    this->m_last_head=head;
+
+    return It;
+}
+
+void Exchanger::read_var(VCHAR::iterator & _It)
+{
+    byte addr=*_It;
+
+    if(this->check_free_addr(addr,DIR::INPUT))
+        throw Exchanger_Error(11,"lecture impossible la variable n'existe pas donc ignorer",Error::level::WARNING);
+
+    byte size=*(_It++);
+
+    *this->m_var.in[addr]=VCHAR(_It++,_It+=size);
+}
+
+bool Exchanger::check_free_addr(byte _addr,direction _dir)
+{
+    if(_dir == DIR::INPUT)
+        return this->m_var.in.find(_addr)==this->m_var.in.end()?true:false;
+    else if(_dir == DIR::OUTPUT)
+        return this->m_var.out.find(_addr)==this->m_var.out.end()?true:false;
+
     return false;
 }
