@@ -37,9 +37,9 @@ public:
     Object & get_robj(byte const & _addr,direction const &_dir);
     Object get_obj(byte const & _addr,direction const &_dir);
 
-    template<typename T> void set_var(byte const & _addr,T const & _var);
+    /*template<typename T> void set_var(byte const & _addr,T const & _var);
     template<typename T> T get_var(byte const & _addr) const;
-    template<typename T> T & var(byte const & _addr);
+    template<typename T> T & var(byte const & _addr);*/
 
     void read(Tram & _data);
     Tram write(void);
